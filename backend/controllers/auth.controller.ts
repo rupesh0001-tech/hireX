@@ -15,7 +15,21 @@ function euclideanDistance(desc1: number[], desc2: number[]): number {
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, dob, age, bio, profession, faceDescriptor } = req.body;
+    const {
+      name,
+      email,
+      password,
+      dob,
+      age,
+      role,
+      currentPosition,
+      education,
+      bio,
+      companyName,
+      companyInfo,
+      companyOwnershipDocs,
+      faceDescriptor,
+    } = req.body;
 
     const existingUser = await authService.findUserByEmail(email);
     if (existingUser) {
@@ -26,16 +40,50 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await authService.registerUser(
+    let finalCompanyDocs = companyOwnershipDocs || "";
+
+    if (role === "company" && req.body.companyDocsBase64) {
+      try {
+        const formData = new FormData();
+        formData.append("file", req.body.companyDocsBase64);
+        formData.append("fileName", `${companyName.replace(/\s+/g, '_')}_docs.png`);
+
+        const authHeader = "Basic " + Buffer.from(process.env.IMAGE_KIT_PRIVATE + ":").toString("base64");
+
+        const ikRes = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+          method: "POST",
+          headers: {
+            "Authorization": authHeader,
+          },
+          body: formData,
+        });
+
+        if (ikRes.ok) {
+          const ikData = await ikRes.json();
+          finalCompanyDocs = ikData.url;
+        } else {
+          console.error("Imagekit upload failed:", await ikRes.text());
+        }
+      } catch (err: any) {
+        console.error("Failed to upload company docs:", err);
+      }
+    }
+
+    const newUser = await authService.registerUser({
       name,
       email,
-      hashedPassword,
-      dob ? new Date(dob) : new Date(),
-      age || 0,
-      bio || "",
-      profession || "",
-      faceDescriptor || []
-    );
+      password: hashedPassword,
+      dob: dob ? new Date(dob) : new Date(),
+      age: age || 0,
+      role: role || "common",
+      currentPosition: currentPosition || "",
+      education: education || "",
+      bio: bio || "",
+      companyName: companyName || "",
+      companyInfo: companyInfo || "",
+      companyOwnershipDocs: finalCompanyDocs,
+      faceDescriptor: faceDescriptor || [],
+    });
 
     generateTokenAndSetCookie(newUser._id.toString(), res);
 

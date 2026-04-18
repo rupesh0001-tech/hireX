@@ -1,27 +1,8 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 
-export const registerUser = async (
-  name: string,
-  email: string,
-  passwordHash: string,
-  dob: Date,
-  age: number,
-  bio: string,
-  profession: string,
-  faceDescriptor: number[]
-) => {
-  const newUser = new User({
-    name,
-    email,
-    password: passwordHash,
-    dob,
-    age,
-    bio,
-    profession,
-    faceDescriptor,
-  });
-
+export const registerUser = async (userData: any) => {
+  const newUser = new User(userData);
   return await newUser.save();
 };
 
